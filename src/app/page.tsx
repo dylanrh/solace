@@ -2,6 +2,16 @@
 
 import { useEffect, useState } from "react";
 
+// Utility function to format phone numbers as XXX-XXX-XXXX
+const formatPhoneNumber = (
+  phone: string | number | null | undefined
+): string => {
+  if (!phone) return "";
+  const digits = phone.toString().replace(/\D/g, ""); // remove non-digits
+  if (digits.length !== 10) return phone.toString(); // fallback if not 10 digits
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
 export default function Home() {
   interface Advocate {
     firstName: string;
@@ -64,55 +74,61 @@ export default function Home() {
   };
 
   return (
-    <main style={{ margin: "24px" }}>
-      <h1>Solace Advocates</h1>
-      <br />
-      <br />
-      <div>
-        <p>Search</p>
-        <p>
-          Searching for: <span id="search-term">{search}</span>
-        </p>
+    <main className="min-h-screen bg-gray-900 text-white p-6">
+      <h1 className="text-2xl font-bold mb-6">Solace Advocates</h1>
+
+      {/* Search Card */}
+      <div className="card mb-6 space-y-3">
+        <label className="block text-sm">Search</label>
         <input
-          style={{ border: "1px solid black" }}
+          className="input"
           placeholder="Search advocates..."
           value={search}
           onChange={onChange}
         />
-        <button onClick={reset}>Reset Search</button>
+        <button onClick={reset} className="btn-primary w-fit">
+          Reset Search
+        </button>
       </div>
       <br />
-      <br />
-      <table>
-        <thead>
-          <th>First Name</th>
-          <th>Last Name</th>
-          <th>City</th>
-          <th>Degree</th>
-          <th>Specialties</th>
-          <th>Years of Experience</th>
-          <th>Phone Number</th>
-        </thead>
-        <tbody>
-          {filteredAdvocates.map((advocate, index) => {
-            return (
-              <tr key={index}>
-                <td>{advocate.firstName}</td>
-                <td>{advocate.lastName}</td>
-                <td>{advocate.city}</td>
-                <td>{advocate.degree}</td>
-                <td>
-                  {advocate.specialties.map((s) => (
-                    <div key={s}>{s}</div>
-                  ))}
-                </td>
-                <td>{advocate.yearsOfExperience}</td>
-                <td>{advocate.phoneNumber}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg border border-gray-700">
+        <table className="table">
+          <thead className="table-head">
+            <tr>
+              <th className="table-cell">First Name</th>
+              <th className="table-cell">Last Name</th>
+              <th className="table-cell">City</th>
+              <th className="table-cell">Degree</th>
+              <th className="table-cell">Specialties</th>
+              <th className="table-cell">Years of Experience</th>
+              <th className="table-cell">Phone Number</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAdvocates.map((advocate, index) => {
+              return (
+                <tr key={index} className="table-row">
+                  <td className="table-cell">{advocate.firstName}</td>
+                  <td className="table-cell">{advocate.lastName}</td>
+                  <td className="table-cell">{advocate.city}</td>
+                  <td className="table-cell">{advocate.degree}</td>
+                  <td className="table-cell">
+                    {advocate.specialties.map((s) => (
+                      <div key={s}>{s}</div>
+                    ))}
+                  </td>
+                  <td className="table-cell">{advocate.yearsOfExperience}</td>
+                  <td className="table-cell">
+                    {formatPhoneNumber(advocate.phoneNumber)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }
