@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 // Utility function to format phone numbers as XXX-XXX-XXXX
 const formatPhoneNumber = (
@@ -23,54 +24,56 @@ export default function Home() {
     phoneNumber: string | number;
   }
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const q = searchParams.get("q") ?? "";
+  const limit = 50;
+  const offset = Number(searchParams.get("offset") ?? 0);
+
   const [advocates, setAdvocates] = useState<Advocate[]>([]);
   const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(q);
 
   useEffect(() => {
-    console.log("fetching advocates...");
-    fetch("/api/advocates").then((response) => {
-      response.json().then((jsonResponse) => {
+    const url = new URL("/api/advocates", window.location.origin);
+    if (q) url.searchParams.set("q", q);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(offset));
+
+    fetch(url.toString())
+      .then((response) => response.json())
+      .then((jsonResponse) => {
         setAdvocates(jsonResponse.data);
         setFilteredAdvocates(jsonResponse.data);
       });
-    });
-  }, []);
+  }, [q, offset]);
 
   // Utility function to normalize strings and handle undefined/null values
   const norm = (v: unknown) => (v ?? "").toString().toLowerCase();
 
+  // only update input. Search happens on button/Enter
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const searchTerm = e.target.value.toLowerCase();
-    setSearch(searchTerm);
-    // Grab the search term and convert to lowercase.  No need to use document.getElementById here, since we grab it from the only input element on the page. Below commented out and should be removed.
-    // const searchTermElement = document.getElementById("search-term");
-    // if (searchTermElement) {
-    //   searchTermElement.innerHTML = searchTerm;
-    // }
-
-    console.log("filtering advocates...");
-    const filteredAdvocates = advocates.filter((advocate) => {
-      return (
-        norm(advocate.firstName).includes(searchTerm) ||
-        norm(advocate.lastName).includes(searchTerm) ||
-        norm(advocate.city).includes(searchTerm) ||
-        norm(advocate.degree).includes(searchTerm) ||
-        (advocate.specialties ?? []).some((s) =>
-          norm(s).includes(searchTerm)
-        ) ||
-        norm(advocate.yearsOfExperience).includes(searchTerm) ||
-        norm(advocate.phoneNumber).includes(searchTerm)
-      );
-    });
-
-    setFilteredAdvocates(filteredAdvocates);
+    setSearch(e.target.value);
   };
 
+  // write q to URL and reset offset when searching
+  const applySearch = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    const next = search.trim();
+    if (next) params.set("q", next);
+    else params.delete("q");
+    params.set("offset", "0");
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  // clear input and URL
   const reset = () => {
-    // console.log(advocates);
     setSearch("");
-    setFilteredAdvocates(advocates);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("q");
+    params.set("offset", "0");
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
   return (
@@ -85,12 +88,21 @@ export default function Home() {
           placeholder="Search advocates..."
           value={search}
           onChange={onChange}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              applySearch();
+            }
+          }}
         />
-        <button onClick={reset} className="btn-primary w-fit">
-          Reset Search
-        </button>
+        <div className="flex gap-2">
+          <button onClick={applySearch} className="btn-primary w-fit">
+            Apply Search
+          </button>
+          <button onClick={reset} className="btn-primary w-fit">
+            Reset Search
+          </button>
+        </div>
       </div>
-      <br />
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-700">
