@@ -9,12 +9,13 @@ export default function Home() {
     city: string;
     degree: string;
     specialties: string[];
-    yearsOfExperience: string;
+    yearsOfExperience: string | number;
     phoneNumber: string | number;
   }
 
   const [advocates, setAdvocates] = useState<Advocate[]>([]);
   const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     console.log("fetching advocates...");
@@ -26,31 +27,39 @@ export default function Home() {
     });
   }, []);
 
-  const onChange = (e: { target: { value: any } }) => {
-    const searchTerm = e.target.value;
+  // Utility function to normalize strings and handle undefined/null values
+  const norm = (v: unknown) => (v ?? "").toString().toLowerCase();
 
-    const searchTermElement = document.getElementById("search-term");
-    if (searchTermElement) {
-      searchTermElement.innerHTML = searchTerm;
-    }
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const searchTerm = e.target.value.toLowerCase();
+    setSearch(searchTerm);
+    // Grab the search term and convert to lowercase.  No need to use document.getElementById here, since we grab it from the only input element on the page. Below commented out and should be removed.
+    // const searchTermElement = document.getElementById("search-term");
+    // if (searchTermElement) {
+    //   searchTermElement.innerHTML = searchTerm;
+    // }
 
     console.log("filtering advocates...");
     const filteredAdvocates = advocates.filter((advocate) => {
       return (
-        advocate.firstName.includes(searchTerm) ||
-        advocate.lastName.includes(searchTerm) ||
-        advocate.city.includes(searchTerm) ||
-        advocate.degree.includes(searchTerm) ||
-        advocate.specialties.includes(searchTerm) ||
-        advocate.yearsOfExperience.includes(searchTerm)
+        norm(advocate.firstName).includes(searchTerm) ||
+        norm(advocate.lastName).includes(searchTerm) ||
+        norm(advocate.city).includes(searchTerm) ||
+        norm(advocate.degree).includes(searchTerm) ||
+        (advocate.specialties ?? []).some((s) =>
+          norm(s).includes(searchTerm)
+        ) ||
+        norm(advocate.yearsOfExperience).includes(searchTerm) ||
+        norm(advocate.phoneNumber).includes(searchTerm)
       );
     });
 
     setFilteredAdvocates(filteredAdvocates);
   };
 
-  const onClick = () => {
-    console.log(advocates);
+  const reset = () => {
+    // console.log(advocates);
+    setSearch("");
     setFilteredAdvocates(advocates);
   };
 
@@ -62,10 +71,15 @@ export default function Home() {
       <div>
         <p>Search</p>
         <p>
-          Searching for: <span id="search-term"></span>
+          Searching for: <span id="search-term">{search}</span>
         </p>
-        <input style={{ border: "1px solid black" }} onChange={onChange} />
-        <button onClick={onClick}>Reset Search</button>
+        <input
+          style={{ border: "1px solid black" }}
+          placeholder="Search advocates..."
+          value={search}
+          onChange={onChange}
+        />
+        <button onClick={reset}>Reset Search</button>
       </div>
       <br />
       <br />
