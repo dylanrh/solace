@@ -35,19 +35,37 @@ export default function Home() {
   const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
   const [search, setSearch] = useState(q);
 
+  const sort = (searchParams.get("sort") ?? "lastName").toLowerCase();
+  const order = (searchParams.get("order") ?? "asc").toLowerCase();
+
+  const setSort = (nextCol: "lastname" | "firstname" | "city") => {
+    const params = new URLSearchParams(searchParams.toString());
+    const currentCol = (params.get("sort") ?? "lastname").toLowerCase();
+    const currentOrder = (params.get("order") ?? "asc").toLowerCase();
+
+    const nextOrder =
+      currentCol === nextCol && currentOrder === "asc" ? "desc" : "asc";
+
+    params.set("sort", nextCol);
+    params.set("order", nextOrder);
+    params.set("offset", "0"); // reset paging on sort change
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
   useEffect(() => {
     const url = new URL("/api/advocates", window.location.origin);
     if (q) url.searchParams.set("q", q);
     url.searchParams.set("limit", String(limit));
     url.searchParams.set("offset", String(offset));
+    url.searchParams.set("sort", sort);
+    url.searchParams.set("order", order);
 
-    fetch(url.toString())
-      .then((response) => response.json())
-      .then((jsonResponse) => {
-        setAdvocates(jsonResponse.data);
-        setFilteredAdvocates(jsonResponse.data);
-      });
-  }, [q, offset]);
+    fetch(url.toString()).then(async (response) => {
+      const jsonResponse = await response.json();
+      setAdvocates(jsonResponse.data);
+      setFilteredAdvocates(jsonResponse.data);
+    });
+  }, [q, offset, sort, order]);
 
   // Utility function to normalize strings and handle undefined/null values
   const norm = (v: unknown) => (v ?? "").toString().toLowerCase();
@@ -109,9 +127,32 @@ export default function Home() {
         <table className="table">
           <thead className="table-head">
             <tr>
-              <th className="table-cell">First Name</th>
-              <th className="table-cell">Last Name</th>
-              <th className="table-cell">City</th>
+              <th className="table-cell">
+                <button
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => setSort("firstname")}
+                >
+                  First Name
+                  {sort === "firstname" ? (order === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              </th>
+              <th className="table-cell">
+                <button
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => setSort("lastname")}
+                >
+                  Last Name
+                  {sort === "lastname" ? (order === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              </th>
+              <th className="table-cell">
+                <button
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => setSort("city")}
+                >
+                  City{sort === "city" ? (order === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              </th>
               <th className="table-cell">Degree</th>
               <th className="table-cell">Specialties</th>
               <th className="table-cell">Years of Experience</th>
