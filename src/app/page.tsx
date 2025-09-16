@@ -1,91 +1,187 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+
+// Utility function to format phone numbers as XXX-XXX-XXXX
+const formatPhoneNumber = (
+  phone: string | number | null | undefined
+): string => {
+  if (!phone) return "";
+  const digits = phone.toString().replace(/\D/g, ""); // remove non-digits
+  if (digits.length !== 10) return phone.toString(); // fallback if not 10 digits
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
 
 export default function Home() {
-  const [advocates, setAdvocates] = useState([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState([]);
+  interface Advocate {
+    firstName: string;
+    lastName: string;
+    city: string;
+    degree: string;
+    specialties: string[];
+    yearsOfExperience: string | number;
+    phoneNumber: string | number;
+  }
 
-  useEffect(() => {
-    console.log("fetching advocates...");
-    fetch("/api/advocates").then((response) => {
-      response.json().then((jsonResponse) => {
-        setAdvocates(jsonResponse.data);
-        setFilteredAdvocates(jsonResponse.data);
-      });
-    });
-  }, []);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const onChange = (e) => {
-    const searchTerm = e.target.value;
+  const q = searchParams.get("q") ?? "";
+  const limit = 50;
+  const offset = Number(searchParams.get("offset") ?? 0);
 
-    document.getElementById("search-term").innerHTML = searchTerm;
+  const [advocates, setAdvocates] = useState<Advocate[]>([]);
+  const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
+  const [search, setSearch] = useState(q);
 
-    console.log("filtering advocates...");
-    const filteredAdvocates = advocates.filter((advocate) => {
-      return (
-        advocate.firstName.includes(searchTerm) ||
-        advocate.lastName.includes(searchTerm) ||
-        advocate.city.includes(searchTerm) ||
-        advocate.degree.includes(searchTerm) ||
-        advocate.specialties.includes(searchTerm) ||
-        advocate.yearsOfExperience.includes(searchTerm)
-      );
-    });
+  const sort = (searchParams.get("sort") ?? "lastName").toLowerCase();
+  const order = (searchParams.get("order") ?? "asc").toLowerCase();
 
-    setFilteredAdvocates(filteredAdvocates);
+  const setSort = (nextCol: "lastname" | "firstname" | "city") => {
+    const params = new URLSearchParams(searchParams.toString());
+    const currentCol = (params.get("sort") ?? "lastname").toLowerCase();
+    const currentOrder = (params.get("order") ?? "asc").toLowerCase();
+
+    const nextOrder =
+      currentCol === nextCol && currentOrder === "asc" ? "desc" : "asc";
+
+    params.set("sort", nextCol);
+    params.set("order", nextOrder);
+    params.set("offset", "0"); // reset paging on sort change
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
-  const onClick = () => {
-    console.log(advocates);
-    setFilteredAdvocates(advocates);
+  useEffect(() => {
+    const url = new URL("/api/advocates", window.location.origin);
+    if (q) url.searchParams.set("q", q);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(offset));
+    url.searchParams.set("sort", sort);
+    url.searchParams.set("order", order);
+
+    fetch(url.toString()).then(async (response) => {
+      const jsonResponse = await response.json();
+      setAdvocates(jsonResponse.data);
+      setFilteredAdvocates(jsonResponse.data);
+    });
+  }, [q, offset, sort, order]);
+
+  // Utility function to normalize strings and handle undefined/null values
+  const norm = (v: unknown) => (v ?? "").toString().toLowerCase();
+
+  // only update input. Search happens on button/Enter
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+  };
+
+  // write q to URL and reset offset when searching
+  const applySearch = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    const next = search.trim();
+    if (next) params.set("q", next);
+    else params.delete("q");
+    params.set("offset", "0");
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  // clear input and URL
+  const reset = () => {
+    setSearch("");
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("q");
+    params.set("offset", "0");
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
   return (
-    <main style={{ margin: "24px" }}>
-      <h1>Solace Advocates</h1>
-      <br />
-      <br />
-      <div>
-        <p>Search</p>
-        <p>
-          Searching for: <span id="search-term"></span>
-        </p>
-        <input style={{ border: "1px solid black" }} onChange={onChange} />
-        <button onClick={onClick}>Reset Search</button>
+    <main className="min-h-screen bg-gray-900 text-white p-6">
+      <h1 className="text-2xl font-bold mb-6">Solace Advocates</h1>
+
+      {/* Search Card */}
+      <div className="card mb-6 space-y-3">
+        <label className="block text-sm">Search</label>
+        <input
+          className="input"
+          placeholder="Search advocates..."
+          value={search}
+          onChange={onChange}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              applySearch();
+            }
+          }}
+        />
+        <div className="flex gap-2">
+          <button onClick={applySearch} className="btn-primary w-fit">
+            Apply Search
+          </button>
+          <button onClick={reset} className="btn-primary w-fit">
+            Reset Search
+          </button>
+        </div>
       </div>
-      <br />
-      <br />
-      <table>
-        <thead>
-          <th>First Name</th>
-          <th>Last Name</th>
-          <th>City</th>
-          <th>Degree</th>
-          <th>Specialties</th>
-          <th>Years of Experience</th>
-          <th>Phone Number</th>
-        </thead>
-        <tbody>
-          {filteredAdvocates.map((advocate) => {
-            return (
-              <tr>
-                <td>{advocate.firstName}</td>
-                <td>{advocate.lastName}</td>
-                <td>{advocate.city}</td>
-                <td>{advocate.degree}</td>
-                <td>
-                  {advocate.specialties.map((s) => (
-                    <div>{s}</div>
-                  ))}
-                </td>
-                <td>{advocate.yearsOfExperience}</td>
-                <td>{advocate.phoneNumber}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg border border-gray-700">
+        <table className="table">
+          <thead className="table-head">
+            <tr>
+              <th className="table-cell">
+                <button
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => setSort("firstname")}
+                >
+                  First Name
+                  {sort === "firstname" ? (order === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              </th>
+              <th className="table-cell">
+                <button
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => setSort("lastname")}
+                >
+                  Last Name
+                  {sort === "lastname" ? (order === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              </th>
+              <th className="table-cell">
+                <button
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => setSort("city")}
+                >
+                  City{sort === "city" ? (order === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              </th>
+              <th className="table-cell">Degree</th>
+              <th className="table-cell">Specialties</th>
+              <th className="table-cell">Years of Experience</th>
+              <th className="table-cell">Phone Number</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAdvocates.map((advocate, index) => {
+              return (
+                <tr key={index} className="table-row">
+                  <td className="table-cell">{advocate.firstName}</td>
+                  <td className="table-cell">{advocate.lastName}</td>
+                  <td className="table-cell">{advocate.city}</td>
+                  <td className="table-cell">{advocate.degree}</td>
+                  <td className="table-cell">
+                    {advocate.specialties.map((s) => (
+                      <div key={s}>{s}</div>
+                    ))}
+                  </td>
+                  <td className="table-cell">{advocate.yearsOfExperience}</td>
+                  <td className="table-cell">
+                    {formatPhoneNumber(advocate.phoneNumber)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }
